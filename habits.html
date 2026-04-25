@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>habits</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #fafaf8;
+    --surface: #ffffff;
+    --surface2: #f3f2ef;
+    --border: rgba(0,0,0,0.10);
+    --border2: rgba(0,0,0,0.18);
+    --text: #1a1a18;
+    --text2: #6b6b67;
+    --text3: #a8a8a3;
+    --radius: 10px;
+    --radius-lg: 14px;
+
+    --teal-50: #E1F5EE; --teal-100: #9FE1CB; --teal-200: #5DCAA5;
+    --teal-400: #1D9E75; --teal-600: #0F6E56; --teal-800: #085041;
+    --amber-50: #FAEEDA; --amber-100: #FAC775; --amber-400: #BA7517;
+    --purple-50: #EEEDFE; --purple-100: #CECBF6; --purple-400: #7F77DD;
+    --coral-50: #FAECE7; --coral-100: #F5C4B3; --coral-400: #D85A30;
+    --green-50: #EAF3DE; --green-100: #C0DD97; --green-400: #639922;
+    --blue-50: #E6F1FB; --blue-100: #B5D4F4; --blue-400: #378ADD;
+    --red-400: #E24B4A;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141412;
+      --surface: #1e1e1b;
+      --surface2: #272724;
+      --border: rgba(255,255,255,0.09);
+      --border2: rgba(255,255,255,0.16);
+      --text: #f0ede6;
+      --text2: #9a9a94;
+      --text3: #5e5e59;
+    }
+  }
+
+  html, body { height: 100%; }
+  body {
+    font-family: 'Georgia', serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 0 16px 80px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 28px 0 20px;
+    border-bottom: 0.5px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: normal;
+    font-style: italic;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .date-str {
+    font-size: 12px;
+    color: var(--text3);
+    font-family: 'Courier New', monospace;
+    letter-spacing: 0.04em;
+  }
+
+  /* Nav */
+  .nav {
+    display: flex;
+    gap: 2px;
+    background: var(--surface2);
+    border-radius: var(--radius);
+    padding: 3px;
+    margin-bottom: 22px;
+  }
+  .nav button {
+    flex: 1;
+    padding: 7px 0;
+    font-size: 13px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--text2);
+    font-family: 'Georgia', serif;
+    transition: all .15s;
+  }
+  .nav button.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  /* Section labels */
+  .section-label {
+    font-size: 10px;
+    font-family: 'Courier New', monospace;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin: 18px 0 8px;
+  }
+
+  /* Habit rows */
+  .habit-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-left-width: 3px;
+    border-radius: var(--radius-lg);
+    margin-bottom: 6px;
+    transition: box-shadow .15s;
+  }
+  .habit-icon { font-size: 18px; width: 28px; text-align: center; flex-shrink: 0; }
+  .habit-info { flex: 1; min-width: 0; }
+  .habit-name { font-size: 15px; font-style: italic; }
+  .habit-meta { font-size: 12px; color: var(--text3); font-family: 'Courier New', monospace; margin-top: 1px; }
+  .streak { font-size: 11px; color: var(--teal-400); font-family: 'Courier New', monospace; margin-top: 2px; }
+
+  /* Day cells */
+  .days-row { display: flex; gap: 4px; }
+  .day-cell {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 0.5px solid var(--border);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 500;
+    color: var(--text3);
+    background: transparent;
+    transition: all .15s;
+    font-family: 'Courier New', monospace;
+  }
+  .day-cell:hover:not(.future) { border-color: var(--border2); background: var(--surface2); }
+  .day-cell.done { background: var(--teal-400); border-color: transparent; color: white; }
+  .day-cell.partial { background: var(--amber-50); border-color: var(--amber-400); color: var(--amber-400); }
+  .day-cell.today-ring { border-width: 1.5px; border-color: var(--text2); }
+  .day-cell.future { opacity: .3; cursor: default; }
+  .day-labels { display: flex; gap: 4px; margin-bottom: 4px; justify-content: flex-end; }
+  .day-lbl { width: 32px; text-align: center; font-size: 10px; color: var(--text3); font-family: 'Courier New', monospace; }
+
+  /* Pips (weekly) */
+  .weekly-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-left-width: 3px;
+    border-radius: var(--radius-lg);
+    margin-bottom: 6px;
+  }
+  .pips { display: flex; gap: 6px; }
+  .pip {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 0.5px solid var(--border2);
+    cursor: pointer; background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; color: var(--text3);
+    transition: all .15s;
+  }
+  .pip:hover { background: var(--surface2); }
+  .pip.filled { background: var(--purple-400); border-color: transparent; color: white; }
+
+  /* Progress bar */
+  .prog-bar { flex: 1; height: 5px; background: var(--surface2); border-radius: 3px; margin: 0 8px; }
+  .prog-fill { height: 5px; border-radius: 3px; transition: width .3s; }
+
+  /* Log panel */
+  .log-panel {
+    background: var(--surface2);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin: -2px 0 6px;
+    border: 0.5px solid var(--border);
+  }
+  .log-panel h3 { font-size: 13px; font-style: italic; color: var(--text2); margin-bottom: 10px; font-weight: normal; }
+  .dur-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .dur-row input[type=range] { flex: 1; accent-color: var(--teal-400); }
+  .dur-val { font-size: 15px; font-family: 'Courier New', monospace; min-width: 52px; font-weight: bold; color: var(--text); }
+
+  /* Buttons */
+  .btn-save {
+    padding: 7px 18px; background: var(--text); color: var(--bg);
+    border: none; border-radius: var(--radius); font-size: 13px;
+    cursor: pointer; font-family: 'Georgia', serif; font-style: italic;
+  }
+  .btn-save:hover { opacity: .85; }
+  .btn-cancel {
+    padding: 7px 14px; background: transparent; color: var(--text2);
+    border: 0.5px solid var(--border2); border-radius: var(--radius);
+    font-size: 13px; cursor: pointer; font-family: 'Georgia', serif;
+  }
+
+  /* Add form */
+  .add-trigger {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--text3); font-style: italic;
+    cursor: pointer; background: transparent;
+    border: 0.5px dashed var(--border2);
+    border-radius: var(--radius-lg); padding: 12px 16px;
+    width: 100%; text-align: left; margin-top: 10px;
+    transition: all .15s; font-family: 'Georgia', serif;
+  }
+  .add-trigger:hover { color: var(--text2); border-color: var(--border2); background: var(--surface); }
+
+  .add-form {
+    background: var(--surface);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 16px; margin-top: 10px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .add-form-title { font-size: 15px; font-style: italic; color: var(--text); }
+  .form-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .form-row input, .form-row select {
+    flex: 1; min-width: 100px;
+    font-size: 14px; padding: 8px 10px;
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius);
+    background: var(--surface2); color: var(--text);
+    font-family: 'Georgia', serif;
+  }
+  .form-row input:focus, .form-row select:focus { outline: none; border-color: var(--teal-400); }
+  .form-row input::placeholder { color: var(--text3); }
+
+  .icon-grid { display: flex; gap: 6px; flex-wrap: wrap; }
+  .icon-opt {
+    width: 36px; height: 36px; border-radius: var(--radius);
+    border: 0.5px solid var(--border);
+    cursor: pointer; background: transparent; font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .1s;
+  }
+  .icon-opt:hover { background: var(--surface2); }
+  .icon-opt.sel { border-color: var(--teal-400); background: var(--teal-50); }
+
+  .color-grid { display: flex; gap: 8px; }
+  .color-opt {
+    width: 22px; height: 22px; border-radius: 50%;
+    cursor: pointer; border: 2.5px solid transparent; transition: all .1s;
+  }
+  .color-opt.sel { border-color: var(--text); }
+
+  .form-btns { display: flex; gap: 8px; }
+  .field-label { font-size: 11px; color: var(--text3); font-family: 'Courier New', monospace; letter-spacing: .05em; margin-bottom: 4px; }
+
+  /* Week nav */
+  .week-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .week-lbl { font-size: 13px; color: var(--text2); font-family: 'Courier New', monospace; }
+  .week-btn {
+    background: transparent; border: 0.5px solid var(--border2);
+    border-radius: var(--radius); padding: 5px 12px;
+    cursor: pointer; font-size: 13px; color: var(--text2);
+    font-family: 'Courier New', monospace;
+  }
+  .week-btn:hover { background: var(--surface2); }
+
+  /* History */
+  .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+  .stat-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+  .stat-lbl { font-size: 11px; color: var(--text3); font-family: 'Courier New', monospace; letter-spacing: .05em; margin-bottom: 6px; }
+  .stat-val { font-size: 28px; font-style: italic; font-weight: normal; }
+
+  .heatmap { display: grid; grid-template-columns: repeat(13, 1fr); gap: 4px; margin-bottom: 20px; }
+  .heat-cell { aspect-ratio: 1; border-radius: 3px; background: var(--surface2); }
+  .heat-cell.h1 { background: var(--teal-100); }
+  .heat-cell.h2 { background: var(--teal-200); }
+  .heat-cell.h3 { background: var(--teal-400); }
+  .heat-cell.h4 { background: var(--teal-600); }
+
+  .mini-bars { display: flex; gap: 3px; margin-top: 8px; width: 100%; }
+  .mini-bar { flex: 1; height: 10px; border-radius: 2px; }
+
+  /* Page display */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Delete button */
+  .del-btn {
+    background: transparent; border: none; cursor: pointer;
+    color: var(--text3); font-size: 16px; padding: 4px; line-height: 1;
+    border-radius: 50%; transition: all .15s; flex-shrink: 0;
+  }
+  .del-btn:hover { color: var(--red-400); background: var(--surface2); }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px);
+    background: var(--text); color: var(--bg);
+    padding: 8px 20px; border-radius: 20px; font-size: 13px;
+    font-family: 'Courier New', monospace; pointer-events: none;
+    transition: transform .3s ease, opacity .3s;
+    opacity: 0; z-index: 100;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>habits</h1>
+    <span class="date-str" id="date-str"></span>
+  </div>
+
+  <div class="nav">
+    <button class="active" onclick="showPage('today',this)">today</button>
+    <button onclick="showPage('week',this)">week</button>
+    <button onclick="showPage('history',this)">history</button>
+  </div>
+
+  <div id="page-today" class="page active">
+    <div id="today-content"></div>
+    <div id="add-form-wrap"></div>
+    <button class="add-trigger" onclick="toggleAddForm()">
+      <span style="font-size:18px">+</span> add a habit
+    </button>
+  </div>
+
+  <div id="page-week" class="page">
+    <div class="week-nav">
+      <button class="week-btn" onclick="changeWeek(-1)">← prev</button>
+      <span class="week-lbl" id="week-lbl"></span>
+      <button class="week-btn" onclick="changeWeek(1)">next →</button>
+    </div>
+    <div id="week-content"></div>
+  </div>
+
+  <div id="page-history" class="page">
+    <div id="history-content"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── DB ───────────────────────────────────────────────────────────────────────
+const DB_NAME = 'habitracker', DB_VER = 2;
+let db, habits = [], entries = {};
+
+function openDB() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('habits')) d.createObjectStore('habits', { keyPath: 'id' });
+      if (!d.objectStoreNames.contains('entries')) d.createObjectStore('entries', { keyPath: 'key' });
+    };
+    req.onsuccess = e => res(e.target.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+const tx = (store, mode, fn) => new Promise((res, rej) => {
+  const t = db.transaction(store, mode), s = t.objectStore(store), req = fn(s);
+  req.onsuccess = () => res(req.result);
+  req.onerror = () => rej(req.error);
+});
+const dbGetAll = s => tx(s, 'readonly', st => st.getAll());
+const dbPut    = (s, v) => tx(s, 'readwrite', st => st.put(v));
+const dbDelete = (s, k) => tx(s, 'readwrite', st => st.delete(k));
+
+// ─── Data helpers ─────────────────────────────────────────────────────────────
+const toDateStr = d => d.toISOString().slice(0,10);
+const today     = () => toDateStr(new Date());
+const eKey      = (hid, date) => `${hid}::${date}`;
+
+const DEFAULT_HABITS = [
+  { id: 'h1', name: 'meditation', icon: '🧘', type: 'daily',  goal: 60, unit: 'min',   color: 'teal'   },
+  { id: 'h2', name: 'journaling', icon: '📓', type: 'daily',  goal: null, unit: null,   color: 'purple' },
+  { id: 'h3', name: 'training',   icon: '🏋️', type: 'weekly', goal: 3,  unit: 'times', color: 'amber'  },
+];
+
+async function loadData() {
+  habits = await dbGetAll('habits');
+  if (!habits.length) {
+    for (const h of DEFAULT_HABITS) await dbPut('habits', h);
+    habits = DEFAULT_HABITS.slice();
+  }
+  const all = await dbGetAll('entries');
+  entries = {};
+  for (const e of all) entries[e.key] = e;
+}
+
+function getEntry(hid, date) { return entries[eKey(hid, date)]; }
+
+async function setEntry(hid, date, value) {
+  const key = eKey(hid, date);
+  if (value === null || value === false || value === undefined) {
+    delete entries[key]; await dbDelete('entries', key);
+  } else {
+    const e = { key, habitId: hid, date, value };
+    entries[key] = e; await dbPut('entries', e);
+  }
+  render();
+}
+
+function getDailyStatus(h, date) {
+  const e = getEntry(h.id, date);
+  if (!e) return 'none';
+  if (h.goal && h.unit === 'min') return e.value >= h.goal ? 'done' : 'partial';
+  return e.value ? 'done' : 'none';
+}
+
+function getWeekDates(offset = 0) {
+  const d = new Date(), day = d.getDay();
+  const mon = new Date(d);
+  mon.setDate(d.getDate() - ((day + 6) % 7) + offset * 7);
+  mon.setHours(0,0,0,0);
+  return Array.from({length:7}, (_,i) => {
+    const x = new Date(mon); x.setDate(mon.getDate()+i); return toDateStr(x);
+  });
+}
+
+function calcStreak(h) {
+  let streak = 0, d = new Date();
+  while (true) {
+    const ds = toDateStr(d);
+    if (getDailyStatus(h, ds) === 'done') { streak++; d.setDate(d.getDate()-1); }
+    else break;
+    if (streak > 9999) break;
+  }
+  return streak;
+}
+
+function weeklyCount(h, dates) {
+  return dates.filter(ds => { const e = getEntry(h.id, ds); return e && e.value; }).length;
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let weekOffset = 0, logTarget = null, addFormOpen = false;
+let selIcon = '🎯', selColor = 'teal', activePage = 'today';
+const ICONS   = ['🧘','📓','🏋️','🚴','🏃','🥗','📚','💧','🛏️','🎯','🎨','🎸','💊','🌿','✍️','🧠','🫀','☀️'];
+const COLORS  = ['teal','purple','amber','coral','green','blue'];
+const CVALS   = { teal:'#1D9E75', purple:'#7F77DD', amber:'#BA7517', coral:'#D85A30', green:'#639922', blue:'#378ADD' };
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function render() {
+  if (activePage === 'today')   renderToday();
+  if (activePage === 'week')    renderWeek();
+  if (activePage === 'history') renderHistory();
+}
+
+function renderToday() {
+  const t = today();
+  const daily  = habits.filter(h => h.type === 'daily');
+  const weekly = habits.filter(h => h.type === 'weekly');
+  const wDates = getWeekDates(0);
+  let html = '';
+
+  if (daily.length) {
+    html += `<div class="section-label">daily</div>`;
+    for (const h of daily) {
+      const status = getDailyStatus(h, t);
+      const e = getEntry(h.id, t);
+      const streak = calcStreak(h);
+      let meta = '';
+      if (h.goal && h.unit === 'min') meta = e ? `${e.value} / ${h.goal} min` : `goal: ${h.goal} min`;
+      const isLog = logTarget === h.id + '::' + t;
+
+      html += `<div class="habit-row" style="border-left-color:${CVALS[h.color]||CVALS.teal}">
+        <div class="habit-icon">${h.icon}</div>
+        <div class="habit-info">
+          <div class="habit-name">${h.name}</div>
+          ${meta ? `<div class="habit-meta">${meta}</div>` : ''}
+          ${streak > 1 ? `<div class="streak">${streak} day streak</div>` : ''}
+        </div>`;
+
+      if (h.goal && h.unit === 'min') {
+        const lbl = status === 'done' ? '✓' : status === 'partial' ? '~' : '+';
+        html += `<button class="day-cell today-ring ${status !== 'none' ? status : ''}" onclick="openLog('${h.id}','${t}')">${lbl}</button>`;
+      } else {
+        html += `<button class="day-cell today-ring ${status === 'done' ? 'done' : ''}" onclick="toggleSimple('${h.id}','${t}')">${status === 'done' ? '✓' : ''}</button>`;
+      }
+      html += `<button class="del-btn" onclick="deleteHabit('${h.id}')" title="delete habit">×</button>`;
+      html += `</div>`;
+
+      if (isLog) html += logPanel(h, t, e);
+    }
+  }
+
+  if (weekly.length) {
+    html += `<div class="section-label">weekly</div>`;
+    for (const h of weekly) {
+      const count = weeklyCount(h, wDates);
+      const goal  = h.goal || 3;
+      const pips  = Array.from({length: goal}, (_,i) =>
+        `<button class="pip ${i < count ? 'filled' : ''}" onclick="toggleWeeklyPip('${h.id}',${i},${count})">${i < count ? '✓' : ''}</button>`
+      ).join('');
+      html += `<div class="weekly-row" style="border-left-color:${CVALS[h.color]||CVALS.amber}">
+        <div class="habit-icon">${h.icon}</div>
+        <div class="habit-info">
+          <div class="habit-name">${h.name}</div>
+          <div class="habit-meta">${count} / ${goal} this week</div>
+        </div>
+        <div class="pips">${pips}</div>
+        <button class="del-btn" onclick="deleteHabit('${h.id}')" title="delete habit">×</button>
+      </div>`;
+    }
+  }
+
+  document.getElementById('today-content').innerHTML = html;
+}
+
+function logPanel(h, date, e) {
+  const cur = e ? e.value : (h.goal || 30);
+  return `<div class="log-panel">
+    <h3>log ${h.name}</h3>
+    <div class="dur-row">
+      <span style="font-size:11px;color:var(--text3)">0</span>
+      <input type="range" min="0" max="120" step="5" value="${cur}" id="dur-${h.id}"
+        oninput="document.getElementById('durval-${h.id}').textContent=this.value+' min'">
+      <span style="font-size:11px;color:var(--text3)">120</span>
+      <span class="dur-val" id="durval-${h.id}">${cur} min</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-save" onclick="saveLog('${h.id}','${date}')">save</button>
+      <button class="btn-cancel" onclick="logTarget=null;render()">cancel</button>
+    </div>
+  </div>`;
+}
+
+function renderWeek() {
+  const wDates = getWeekDates(weekOffset);
+  const ws = new Date(wDates[0] + 'T12:00:00');
+  const we = new Date(wDates[6] + 'T12:00:00');
+  const fmt = { month: 'short', day: 'numeric' };
+  document.getElementById('week-lbl').textContent =
+    ws.toLocaleDateString('en', fmt) + ' – ' + we.toLocaleDateString('en', fmt);
+
+  const t = today();
+  const dNames = ['M','T','W','T','F','S','S'];
+  const daily  = habits.filter(h => h.type === 'daily');
+  const weekly = habits.filter(h => h.type === 'weekly');
+  let html = '';
+
+  if (daily.length) {
+    html += `<div class="section-label">daily habits</div>`;
+    html += `<div class="day-labels">${dNames.map((n,i) => `<div class="day-lbl" style="${wDates[i]===t?'color:var(--text);font-weight:bold':''}">${n}</div>`).join('')}</div>`;
+    for (const h of daily) {
+      const cells = wDates.map(ds => {
+        const isFuture = ds > t;
+        const status = getDailyStatus(h, ds);
+        const isToday = ds === t;
+        const cls = ['day-cell', isToday ? 'today-ring' : '', isFuture ? 'future' : '', status !== 'none' ? status : ''].filter(Boolean).join(' ');
+        const lbl = status === 'done' ? '✓' : status === 'partial' ? '~' : '';
+        const click = isFuture ? '' : (h.goal && h.unit === 'min')
+          ? `onclick="openLog('${h.id}','${ds}')"`
+          : `onclick="toggleSimple('${h.id}','${ds}')"`;
+        return `<button class="${cls}" ${click}>${lbl}</button>`;
+      }).join('');
+
+      html += `<div class="habit-row" style="border-left-color:${CVALS[h.color]||CVALS.teal}">
+        <div class="habit-icon">${h.icon}</div>
+        <div class="habit-info" style="min-width:80px"><div class="habit-name">${h.name}</div></div>
+        <div class="days-row">${cells}</div>
+      </div>`;
+
+      if (logTarget && logTarget.startsWith(h.id + '::')) {
+        const ld = logTarget.split('::')[1];
+        if (wDates.includes(ld)) html += logPanel(h, ld, getEntry(h.id, ld));
+      }
+    }
+  }
+
+  if (weekly.length) {
+    html += `<div class="section-label">weekly habits</div>`;
+    for (const h of weekly) {
+      const count = weeklyCount(h, wDates);
+      const goal  = h.goal || 3;
+      const pct   = Math.round(Math.min(100, count / goal * 100));
+      html += `<div class="weekly-row" style="border-left-color:${CVALS[h.color]||CVALS.amber}">
+        <div class="habit-icon">${h.icon}</div>
+        <div class="habit-info"><div class="habit-name">${h.name}</div><div class="habit-meta">${count} / ${goal} sessions</div></div>
+        <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${CVALS[h.color]||CVALS.amber}"></div></div>
+        <span style="font-size:12px;font-family:'Courier New',monospace;min-width:36px;text-align:right;color:var(--text2)">${pct}%</span>
+      </div>`;
+    }
+  }
+
+  document.getElementById('week-content').innerHTML = html;
+}
+
+function renderHistory() {
+  const allDone = Object.values(entries).filter(e => e.value);
+  const totalCI = allDone.length;
+  const uniqDays = new Set(allDone.map(e => e.date)).size;
+
+  let best = 0, cur = 0;
+  for (let i = 90; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const ds = toDateStr(d);
+    const any = habits.some(h => { const e = getEntry(h.id, ds); return e && e.value; });
+    if (any) { cur++; best = Math.max(best, cur); } else cur = 0;
+  }
+
+  let html = `<div class="stat-grid">
+    <div class="stat-card"><div class="stat-lbl">check-ins</div><div class="stat-val">${totalCI}</div></div>
+    <div class="stat-card"><div class="stat-lbl">active days</div><div class="stat-val">${uniqDays}</div></div>
+    <div class="stat-card"><div class="stat-lbl">best streak</div><div class="stat-val">${best}d</div></div>
+    <div class="stat-card"><div class="stat-lbl">habits</div><div class="stat-val">${habits.length}</div></div>
+  </div>`;
+
+  html += `<div class="section-label">last 91 days</div>`;
+  html += `<div class="heatmap">`;
+  for (let i = 90; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const ds = toDateStr(d);
+    const cnt = habits.filter(h => { const e = getEntry(h.id, ds); return e && e.value; }).length;
+    const cl = cnt === 0 ? '' : cnt === 1 ? 'h1' : cnt === 2 ? 'h2' : cnt <= 3 ? 'h3' : 'h4';
+    html += `<div class="heat-cell ${cl}" title="${ds}: ${cnt} habits done"></div>`;
+  }
+  html += `</div>`;
+
+  html += `<div class="section-label">per habit — 4 weeks</div>`;
+  for (const h of habits) {
+    const bars = Array.from({length:28}, (_,i) => {
+      const d = new Date(); d.setDate(d.getDate() - (27 - i));
+      const ds = toDateStr(d);
+      const status = h.type === 'daily' ? getDailyStatus(h, ds) : (getEntry(h.id, ds)?.value ? 'done' : 'none');
+      const bg = status === 'done' ? CVALS[h.color] || CVALS.teal
+               : status === 'partial' ? 'var(--amber-100)'
+               : 'var(--surface2)';
+      return `<div class="mini-bar" style="background:${bg}"></div>`;
+    }).join('');
+    html += `<div class="habit-row" style="flex-wrap:wrap;border-left-color:${CVALS[h.color]||CVALS.teal}">
+      <div class="habit-icon">${h.icon}</div>
+      <div class="habit-info"><div class="habit-name">${h.name}</div></div>
+      <div class="mini-bars">${bars}</div>
+    </div>`;
+  }
+
+  document.getElementById('history-content').innerHTML = html;
+}
+
+// ─── Add form ─────────────────────────────────────────────────────────────────
+function toggleAddForm() { addFormOpen = !addFormOpen; renderAddForm(); }
+
+function renderAddForm() {
+  const wrap = document.getElementById('add-form-wrap');
+  if (!addFormOpen) { wrap.innerHTML = ''; return; }
+  const iconOpts   = ICONS.map(ic  => `<button class="icon-opt ${ic===selIcon?'sel':''}" onclick="pickIcon('${ic}')">${ic}</button>`).join('');
+  const colorOpts  = COLORS.map(cl => `<div class="color-opt ${cl===selColor?'sel':''}" style="background:${CVALS[cl]}" onclick="pickColor('${cl}')"></div>`).join('');
+  wrap.innerHTML = `<div class="add-form">
+    <div class="add-form-title">new habit</div>
+    <div class="form-row">
+      <input type="text" id="new-name" placeholder="habit name" style="flex:2">
+      <select id="new-type">
+        <option value="daily">daily</option>
+        <option value="weekly">weekly</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <input type="number" id="new-goal" placeholder="goal (optional)" min="1">
+      <select id="new-unit">
+        <option value="">no unit</option>
+        <option value="min">minutes</option>
+        <option value="times">times</option>
+      </select>
+    </div>
+    <div><div class="field-label">icon</div><div class="icon-grid">${iconOpts}</div></div>
+    <div><div class="field-label">color</div><div class="color-grid">${colorOpts}</div></div>
+    <div class="form-btns">
+      <button class="btn-save" onclick="saveHabit()">add habit</button>
+      <button class="btn-cancel" onclick="addFormOpen=false;renderAddForm()">cancel</button>
+    </div>
+  </div>`;
+}
+
+function pickIcon(ic)  { selIcon = ic;  renderAddForm(); }
+function pickColor(cl) { selColor = cl; renderAddForm(); }
+
+async function saveHabit() {
+  const name = document.getElementById('new-name').value.trim();
+  if (!name) { showToast('enter a habit name'); return; }
+  const type = document.getElementById('new-type').value;
+  const goal = document.getElementById('new-goal').value ? parseInt(document.getElementById('new-goal').value) : null;
+  const unit = document.getElementById('new-unit').value || null;
+  const h = { id: 'h' + Date.now(), name, icon: selIcon, type, goal, unit, color: selColor };
+  habits.push(h);
+  await dbPut('habits', h);
+  addFormOpen = false; selIcon = '🎯'; selColor = 'teal';
+  renderAddForm();
+  render();
+  showToast(`"${name}" added`);
+}
+
+async function deleteHabit(id) {
+  if (!confirm('delete this habit and all its data?')) return;
+  habits = habits.filter(h => h.id !== id);
+  await dbDelete('habits', id);
+  const toRemove = Object.keys(entries).filter(k => k.startsWith(id + '::'));
+  for (const k of toRemove) { delete entries[k]; await dbDelete('entries', k); }
+  render();
+  showToast('habit deleted');
+}
+
+// ─── Interactions ─────────────────────────────────────────────────────────────
+async function toggleSimple(hid, date) {
+  const e = getEntry(hid, date);
+  await setEntry(hid, date, e ? null : true);
+}
+
+function openLog(hid, date) {
+  logTarget = logTarget === hid + '::' + date ? null : hid + '::' + date;
+  render();
+}
+
+function saveLog(hid, date) {
+  const val = parseInt(document.getElementById('dur-' + hid).value);
+  setEntry(hid, date, val);
+  logTarget = null;
+}
+
+async function toggleWeeklyPip(hid, idx, count) {
+  const wDates = getWeekDates(0).filter(ds => ds <= today());
+  const newCount = idx < count ? idx : idx + 1;
+  for (let i = 0; i < wDates.length; i++) {
+    await setEntry(hid, wDates[i], i < newCount ? true : null);
+  }
+}
+
+function changeWeek(dir) { weekOffset += dir; if (weekOffset > 0) weekOffset = 0; renderWeek(); }
+
+function showPage(name, btn) {
+  activePage = name;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  logTarget = null;
+  render();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+(async () => {
+  db = await openDB();
+  await loadData();
+  const d = new Date();
+  document.getElementById('date-str').textContent =
+    d.toLocaleDateString('en', { weekday:'short', month:'short', day:'numeric' }).toLowerCase();
+  render();
+})();
+</script>
+</body>
+</html>
