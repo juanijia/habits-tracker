@@ -1,0 +1,51 @@
+{
+  "habits": [
+    {
+      "id": "h1",
+      "name": "meditation",
+      "icon": "🧘",
+      "type": "daily",
+      "goal": 60,
+      "unit": "min",
+      "color": "teal"
+    },
+    {
+      "id": "h2",
+      "name": "journaling",
+      "icon": "📓",
+      "type": "daily",
+      "goal": null,
+      "unit": null,
+      "color": "purple"
+    },
+    {
+      "id": "h3",
+      "name": "training",
+      "icon": "🏋️",
+      "type": "weekly",
+      "goal": 3,
+      "unit": "times",
+      "color": "amber"
+    }
+  ],
+  "entries": [
+    {
+      "key": "h1::2026-04-25",
+      "habitId": "h1",
+      "date": "2026-04-25",
+      "value": 45
+    },
+    {
+      "key": "h1::2026-04-29",
+      "habitId": "h1",
+      "date": "2026-04-29",
+      "value": 60
+    },
+    {
+      "key": "h2::2026-04-30",
+      "habitId": "h2",
+      "date": "2026-04-30",
+      "value": true
+    }
+  ]
+}
