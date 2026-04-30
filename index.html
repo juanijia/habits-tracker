@@ -74,11 +74,61 @@
     letter-spacing: -0.02em;
     color: var(--text);
   }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
   .date-str {
     font-size: 12px;
     color: var(--text3);
     font-family: 'Courier New', monospace;
     letter-spacing: 0.04em;
+  }
+
+  /* Sync dot */
+  .sync-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text3);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  /* Settings panel */
+  .settings-panel {
+    display: none;
+    background: var(--surface);
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .settings-panel.open { display: block; }
+  .settings-title {
+    font-size: 13px; font-style: italic; color: var(--text2);
+    margin-bottom: 10px; font-weight: normal;
+  }
+  .settings-note {
+    font-size: 11px; color: var(--text3);
+    font-family: 'Courier New', monospace;
+    margin-bottom: 10px; line-height: 1.6;
+  }
+  .settings-note a { color: var(--teal-400); }
+  .settings-input {
+    width: 100%; font-size: 13px; padding: 8px 10px;
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius);
+    background: var(--surface2); color: var(--text);
+    font-family: 'Courier New', monospace;
+    margin-bottom: 10px;
+  }
+  .settings-input:focus { outline: none; border-color: var(--teal-400); }
+  .sync-status-row {
+    font-size: 11px; color: var(--text3);
+    font-family: 'Courier New', monospace;
+    margin-top: 8px;
   }
 
   /* Nav */
@@ -318,7 +368,35 @@
 <div class="app">
   <div class="header">
     <h1>habits</h1>
-    <span class="date-str" id="date-str"></span>
+    <div class="header-right">
+      <div class="sync-dot" id="sync-dot" onclick="toggleSettings()" title="click to configure github sync"></div>
+      <span class="date-str" id="date-str"></span>
+    </div>
+  </div>
+
+  <!-- Settings panel (hidden by default) -->
+  <div class="settings-panel" id="settings-panel">
+    <div class="settings-title">github sync</div>
+    <div class="settings-note">
+      paste a github
+      <a href="https://github.com/settings/tokens/new?scopes=repo&description=habit+tracker" target="_blank">personal access token</a>
+      (repo scope). your data will be saved to
+      <code style="font-size:10px">juanijia/habits-tracker/data.json</code>
+      and sync across all your devices.
+    </div>
+    <input
+      class="settings-input"
+      type="password"
+      id="gh-token-input"
+      placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+      autocomplete="off"
+    >
+    <div style="display:flex;gap:8px">
+      <button class="btn-save" onclick="saveToken()">save & sync</button>
+      <button class="btn-cancel" onclick="toggleSettings()">close</button>
+      <button class="btn-cancel" onclick="clearToken()" style="margin-left:auto;color:var(--red-400)">disconnect</button>
+    </div>
+    <div class="sync-status-row" id="sync-status-row"></div>
   </div>
 
   <div class="nav">
@@ -351,6 +429,176 @@
 <div class="toast" id="toast"></div>
 
 <script>
+// ─── GitHub Sync ──────────────────────────────────────────────────────────────
+const GITHUB_REPO = 'juanijia/habits-tracker';
+const GITHUB_FILE = 'data.json';
+const GITHUB_API  = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
+
+let ghSha = null; // current SHA of data.json on GitHub
+
+function getToken() { return localStorage.getItem('gh_pat') || ''; }
+function saveRawToken(t) { localStorage.setItem('gh_pat', t); }
+
+function setSyncDot(state) {
+  // state: 'off' | 'syncing' | 'ok' | 'error'
+  const dot = document.getElementById('sync-dot');
+  const row = document.getElementById('sync-status-row');
+  if (!dot) return;
+  const cfg = {
+    off:     { color: 'var(--text3)',    title: 'click to set up github sync',  label: 'not connected' },
+    syncing: { color: 'var(--amber-400)',title: 'syncing…',                     label: 'syncing…' },
+    ok:      { color: 'var(--teal-400)', title: 'synced to github — click to manage', label: `synced ${new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit'})}` },
+    error:   { color: 'var(--red-400)',  title: 'sync error — click to check token',  label: 'sync error — check your token' },
+  };
+  const c = cfg[state] || cfg.off;
+  dot.style.background = c.color;
+  dot.title = c.title;
+  if (row) row.textContent = c.label;
+}
+
+// UTF-8 safe base64 encode/decode
+function toBase64(str) {
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+    (_, p1) => String.fromCharCode(parseInt(p1, 16))));
+}
+function fromBase64(b64) {
+  return decodeURIComponent(
+    Array.from(atob(b64)).map(c => '%' + c.charCodeAt(0).toString(16).padStart(2,'0')).join('')
+  );
+}
+
+async function ghRequest(method, body) {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const opts = {
+      method,
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(GITHUB_API, opts);
+    if (res.status === 404 && method === 'GET') return { notFound: true };
+    if (!res.ok) return { error: res.status };
+    return await res.json();
+  } catch (e) {
+    console.error('GitHub request failed', e);
+    return { error: e.message };
+  }
+}
+
+// Pull data.json from GitHub and overwrite local state
+async function pullFromGitHub() {
+  if (!getToken()) { setSyncDot('off'); return false; }
+  setSyncDot('syncing');
+  const json = await ghRequest('GET');
+  if (!json) { setSyncDot('off'); return false; }
+  if (json.notFound) {
+    // File doesn't exist yet — push current local data to create it
+    await pushToGitHub();
+    return true;
+  }
+  if (json.error) { setSyncDot('error'); return false; }
+  try {
+    ghSha = json.sha;
+    const raw = fromBase64(json.content.replace(/\n/g, ''));
+    const data = JSON.parse(raw);
+    // Overwrite in-memory state with GitHub data
+    habits = data.habits || [];
+    entries = {};
+    for (const e of (data.entries || [])) entries[e.key] = e;
+    // Repopulate IndexedDB
+    await repopulateIDB();
+    setSyncDot('ok');
+    return true;
+  } catch (e) {
+    console.error('Failed to parse GitHub data', e);
+    setSyncDot('error');
+    return false;
+  }
+}
+
+// Push current in-memory state to GitHub
+async function pushToGitHub() {
+  if (!getToken()) return;
+  setSyncDot('syncing');
+  const data = { habits, entries: Object.values(entries) };
+  const content = toBase64(JSON.stringify(data, null, 2));
+  const body = {
+    message: `sync ${new Date().toISOString().slice(0,16).replace('T',' ')}`,
+    content,
+    ...(ghSha ? { sha: ghSha } : {}),
+  };
+  const json = await ghRequest('PUT', body);
+  if (!json || json.error) {
+    // If SHA conflict (someone else pushed), pull first and retry
+    if (json && json.error === 409) {
+      await pullFromGitHub();
+      await pushToGitHub();
+    } else {
+      setSyncDot('error');
+    }
+    return;
+  }
+  ghSha = json.content.sha;
+  setSyncDot('ok');
+}
+
+// Repopulate IndexedDB from in-memory state after a GitHub pull
+async function repopulateIDB() {
+  await new Promise((res, rej) => {
+    const t = db.transaction('habits', 'readwrite');
+    t.objectStore('habits').clear();
+    for (const h of habits) t.objectStore('habits').put(h);
+    t.oncomplete = res; t.onerror = () => rej(t.error);
+  });
+  await new Promise((res, rej) => {
+    const t = db.transaction('entries', 'readwrite');
+    t.objectStore('entries').clear();
+    for (const e of Object.values(entries)) t.objectStore('entries').put(e);
+    t.oncomplete = res; t.onerror = () => rej(t.error);
+  });
+}
+
+// Settings UI
+function toggleSettings() {
+  const panel = document.getElementById('settings-panel');
+  const isOpen = panel.classList.toggle('open');
+  if (isOpen) {
+    const input = document.getElementById('gh-token-input');
+    const t = getToken();
+    input.value = t ? '••••••••••••••••••••' : '';
+    input.placeholder = t ? 'token saved — paste new one to change' : 'ghp_xxxxxxxxxxxxxxxxxxxx';
+  }
+}
+
+async function saveToken() {
+  const input = document.getElementById('gh-token-input');
+  const val = input.value.trim();
+  if (!val || val.startsWith('•')) {
+    // No change
+    toggleSettings();
+    return;
+  }
+  saveRawToken(val);
+  toggleSettings();
+  const pulled = await pullFromGitHub();
+  render();
+  showToast(pulled ? 'synced from github ✓' : 'connected — check sync status');
+}
+
+function clearToken() {
+  if (!confirm('disconnect github sync? your local data stays intact.')) return;
+  localStorage.removeItem('gh_pat');
+  ghSha = null;
+  toggleSettings();
+  setSyncDot('off');
+  showToast('github sync disconnected');
+}
+
 // ─── DB ───────────────────────────────────────────────────────────────────────
 const DB_NAME = 'habitracker', DB_VER = 2;
 let db, habits = [], entries = {};
@@ -409,6 +657,7 @@ async function setEntry(hid, date, value) {
     entries[key] = e; await dbPut('entries', e);
   }
   render();
+  pushToGitHub(); // fire-and-forget
 }
 
 function getDailyStatus(h, date) {
@@ -699,6 +948,7 @@ async function saveHabit() {
   renderAddForm();
   render();
   showToast(`"${name}" added`);
+  pushToGitHub(); // fire-and-forget
 }
 
 async function deleteHabit(id) {
@@ -709,6 +959,7 @@ async function deleteHabit(id) {
   for (const k of toRemove) { delete entries[k]; await dbDelete('entries', k); }
   render();
   showToast('habit deleted');
+  pushToGitHub(); // fire-and-forget
 }
 
 // ─── Interactions ─────────────────────────────────────────────────────────────
@@ -761,7 +1012,16 @@ function showToast(msg) {
   const d = new Date();
   document.getElementById('date-str').textContent =
     d.toLocaleDateString('en', { weekday:'short', month:'short', day:'numeric' }).toLowerCase();
+
+  // Show initial sync dot state
+  setSyncDot(getToken() ? 'syncing' : 'off');
   render();
+
+  // Pull fresh data from GitHub in the background
+  if (getToken()) {
+    const pulled = await pullFromGitHub();
+    if (pulled) render();
+  }
 })();
 </script>
 </body>
